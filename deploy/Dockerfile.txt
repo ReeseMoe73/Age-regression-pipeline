@@ -1,0 +1,25 @@
+# Dockerfile (CPU-only, simple + reliable)
+# Builds a container that serves your FastAPI age regression API with uvicorn.
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Pillow + image handling deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libjpeg62-turbo-dev zlib1g-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+# Install Python deps (use CPU-only PyTorch wheels to avoid CUDA complexity)
+COPY requirements.txt .
+RUN python -m pip install --upgrade pip \
+ && python -m pip install --no-cache-dir -r requirements.txt \
+ && python -m pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# Copy API + model code + trained weights into the image
+# (Make sure best_model.pt is in the same folder as this Dockerfile)
+COPY api.py age_model.py best_model.pt ./
+
+EXPOSE 8000
+
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
